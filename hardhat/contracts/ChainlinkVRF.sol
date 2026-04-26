@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
-import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
-import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
-contract ChainlinkVRF is  VRFConsumerBaseV2{
+import "@chainlink/contracts/src/v0.8/dev/vrf/VRFConsumerBaseV2Plus.sol";
+import "@chainlink/contracts/src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
+
+contract ChainlinkVRF is VRFConsumerBaseV2Plus {
     uint256 private _tokenIdCounter;
     uint32 public callbackGasLimit = 100000;
     uint16 public requestConfirmations = 3;
     uint32 public numWords = 1;
-    uint64 s_subscriptionId;
+    uint256 s_subscriptionId;
     bytes32 keyHash;
     uint256 public s_randomTokenCount;
-
-    VRFCoordinatorV2Interface COORDINATOR;
-
+    bool public nativePayment = true;
 
     event RequestSent(uint256 requestId, uint32 numWords);
     event RequestFulfilled(uint256 requestId, uint256 randomtokenCount);
@@ -34,17 +33,16 @@ contract ChainlinkVRF is  VRFConsumerBaseV2{
     uint256 public lastRequestId;
     address marketplaceOwner;
  constructor(
-        uint64 _subscriptionId,
+        uint256 _subscriptionId,
         bytes32 _keyHash,
         address _vrfCoordinator
         )
-        VRFConsumerBaseV2(_vrfCoordinator)
+        VRFConsumerBaseV2Plus(_vrfCoordinator)
 
     {
     
         s_subscriptionId = _subscriptionId;
         keyHash = _keyHash;
-        COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator );
     }
 
     function getRequestStatus(
@@ -60,12 +58,17 @@ contract ChainlinkVRF is  VRFConsumerBaseV2{
         external 
         returns (uint256 requestId)
     {
-        requestId = COORDINATOR.requestRandomWords(
-            keyHash,
-            s_subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
+        requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: keyHash,
+                subId: s_subscriptionId,
+                requestConfirmations: requestConfirmations,
+                callbackGasLimit: callbackGasLimit,
+                numWords: numWords,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
+                )
+            })
         );
         s_requests[requestId] = RequestStatus({
         nftCount: nftCount,

@@ -1,4 +1,4 @@
-// // SPDX-License-Identifier: MIT
+// Legacy commented contract version.
 // pragma solidity ^0.8.20;
 
 // import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -448,19 +448,37 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+import "@chainlink/contracts/src/v0.8/dev/vrf/VRFConsumerBaseV2Plus.sol";
+import "@chainlink/contracts/src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 
 import "./NFT.sol";
 
-contract Marketplace is Ownable(msg.sender), ReentrancyGuard {
+contract Marketplace is
+    ReentrancyGuard,
+    VRFConsumerBaseV2Plus,
+    AutomationCompatibleInterface
+{
+    address private constant SEPOLIA_VRF_COORDINATOR =
+        0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
+    bytes32 public vrfKeyHash =
+        0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+    uint256 public vrfSubscriptionId =
+        72544967497282408309874280965537828444150412992519385695430290523480694163851;
+    uint32 public callbackGasLimit = 200000;
+    uint16 public requestConfirmations = 3;
+    uint32 public numWords = 1;
+    bool public nativePayment = true;
+
     mapping(address => address[]) private tokens;
     mapping(address => uint256[]) contractTokenIds;
     mapping(address => uint256[]) contractItemIds;
     mapping(address => uint256[]) collectionsOfSoldItems;
     mapping(address => mapping(uint256 => MarketItem)) public marketItems;
     mapping(address => string) collections;
+    mapping(uint256 => address) public requestIdToCollection;
+    mapping(address => uint256) public collectionRequestIds;
 
     address payable public feeAccount = payable(address(this));
     address[] public CollectionAddresses;
@@ -470,7 +488,15 @@ contract Marketplace is Ownable(msg.sender), ReentrancyGuard {
     uint256 public totalFeesCollected;
     uint256 totalEscrowedAmount;
 
+    constructor() VRFConsumerBaseV2Plus(SEPOLIA_VRF_COORDINATOR) {}
+
     event TokenCreated(address indexed creator, address indexed tokenAddress);
+    event WinnerRequested(address indexed collection, uint256 indexed requestId);
+    event WinnerSelected(
+        address indexed collection,
+        address indexed winner,
+        uint256 indexed winningTokenId
+    );
 
     struct MarketItem {
         uint256 itemId;
@@ -593,21 +619,34 @@ contract Marketplace is Ownable(msg.sender), ReentrancyGuard {
     ) external payable nonReentrant {
         uint256 _totalPrice = getTotalPrice(nftContract, tokenId);
         MarketItem storage item = marketItems[nftContract][tokenId];
-        uint256 itemPrice = item.price;
         require(
             msg.value >= _totalPrice,
             "Not enough ether to cover item price and market fee"
         );
         require(!item.sold, "Item already sold");
 
-        uint256 escrowAmount = itemPrice;
+        uint256 marketFee = _totalPrice - item.price;
         item.sold = true;
-        item.escrowAmount += escrowAmount;
-        marketItems[nftContract][tokenId].owner = payable(msg.sender);
+        item.owner = payable(msg.sender);
         collectionsOfSoldItems[nftContract].push(tokenId);
+        totalFeesCollected += marketFee;
+
         if (collectionsOfSoldItems[nftContract].length == getNFTCount) {
             collectionInfo[nftContract].allSold = true;
         }
+
+        (bool sellerPaid, ) = item.seller.call{value: item.price}("");
+        require(sellerPaid, "Seller payment failed");
+
+        IERC721(nftContract).transferFrom(address(this), msg.sender, item.tokenId);
+
+        if (msg.value > _totalPrice) {
+            (bool refunded, ) = payable(msg.sender).call{
+                value: msg.value - _totalPrice
+            }("");
+            require(refunded, "Refund failed");
+        }
+
         emit Bought(
             item.itemId,
             nftContract,
@@ -634,11 +673,42 @@ contract Marketplace is Ownable(msg.sender), ReentrancyGuard {
             ) % range;
     }
 
-    function playLottery(address collectionAddress) internal {
+    function requestWinner(address collectionAddress) public returns (uint256 requestId) {
         CollectionInfo storage info = collectionInfo[collectionAddress];
         require(info.allSold, "Not all NFTs are sold");
+        require(
+            collectionWinners[collectionAddress].winnerAddress == address(0),
+            "Winner already selected"
+        );
+        require(collectionRequestIds[collectionAddress] == 0, "Winner already requested");
+
+        requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: vrfKeyHash,
+                subId: vrfSubscriptionId,
+                requestConfirmations: requestConfirmations,
+                callbackGasLimit: callbackGasLimit,
+                numWords: numWords,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
+                )
+            })
+        );
+
+        requestIdToCollection[requestId] = collectionAddress;
+        collectionRequestIds[collectionAddress] = requestId;
+        emit WinnerRequested(collectionAddress, requestId);
+    }
+
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal override {
+        address collectionAddress = requestIdToCollection[requestId];
+        require(collectionAddress != address(0), "Unknown request");
+
         uint256 nftCount = contractTokenIds[collectionAddress].length;
-        uint256 randomTokenNumber = generateRandomNumber(nftCount);
+        uint256 randomTokenNumber = randomWords[0] % nftCount;
 
         MarketItem storage winningItem = marketItems[collectionAddress][
             randomTokenNumber
@@ -647,15 +717,20 @@ contract Marketplace is Ownable(msg.sender), ReentrancyGuard {
             winningItem.owner,
             randomTokenNumber
         );
+        delete requestIdToCollection[requestId];
 
-        uint256 winnerPrize = (totalEscrowedAmount * info.winnerPercentage) /
-            100;
-        (bool success, ) = payable(winningItem.owner).call{value: winnerPrize}(
-            ""
+        emit WinnerSelected(
+            collectionAddress,
+            winningItem.owner,
+            randomTokenNumber
         );
-        require(success, "Failed to send prize to winner");
+    }
 
-        totalEscrowedAmount -= winnerPrize;
+    function getCollectionWinner(
+        address collectionAddress
+    ) external view returns (address, uint256) {
+        WinnerInfo storage winnerInfo = collectionWinners[collectionAddress];
+        return (winnerInfo.winnerAddress, winnerInfo.winningTokenId);
     }
 
     function getTotalPrice(
@@ -778,6 +853,42 @@ contract Marketplace is Ownable(msg.sender), ReentrancyGuard {
             if (item.sold) {
                 totalEscrowed += item.escrowAmount;
             }
+        }
+    }
+
+    function checkUpkeep(
+        bytes calldata
+    ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+        for (uint256 i = 0; i < CollectionAddresses.length; i++) {
+            address collectionAddress = CollectionAddresses[i];
+            CollectionInfo memory info = collectionInfo[collectionAddress];
+            bool intervalPassed = (block.timestamp - info.lastTimeStamp) >
+                info.updateInterval;
+            bool noWinner = collectionWinners[collectionAddress]
+                .winnerAddress == address(0);
+            bool noPendingRequest = collectionRequestIds[collectionAddress] == 0;
+
+            if (info.allSold && intervalPassed && noWinner && noPendingRequest) {
+                return (true, abi.encode(collectionAddress));
+            }
+        }
+
+        return (false, "");
+    }
+
+    function performUpkeep(bytes calldata performData) external override {
+        address collectionAddress = abi.decode(performData, (address));
+        CollectionInfo storage info = collectionInfo[collectionAddress];
+        bool intervalPassed = (block.timestamp - info.lastTimeStamp) >
+            info.updateInterval;
+
+        if (
+            info.allSold &&
+            intervalPassed &&
+            collectionWinners[collectionAddress].winnerAddress == address(0) &&
+            collectionRequestIds[collectionAddress] == 0
+        ) {
+            requestWinner(collectionAddress);
         }
     }
 

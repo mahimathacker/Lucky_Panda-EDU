@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
-import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import "@chainlink/contracts/src/v0.8/dev/vrf/VRFConsumerBaseV2Plus.sol";
+import "@chainlink/contracts/src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 
-contract LotteryEscrow is ERC721, VRFConsumerBaseV2, AutomationCompatibleInterface{
+contract LotteryEscrow is ERC721, VRFConsumerBaseV2Plus, AutomationCompatibleInterface{
     uint256 private _tokenIdCounter;
         uint256 private _ItemIdsCounter;
 
@@ -29,9 +29,9 @@ contract LotteryEscrow is ERC721, VRFConsumerBaseV2, AutomationCompatibleInterfa
         public s_requests; /* requestId --> requestStatus */
 
     mapping(address => uint256) public addressToRequestId;
-    VRFCoordinatorV2Interface COORDINATOR;
     // Your subscription ID.
-    uint64 s_subscriptionId;
+    uint256 s_subscriptionId;
+    bool public nativePayment = true;
 
     // past requests Id.
     uint256[] public requestIds;
@@ -86,10 +86,10 @@ contract LotteryEscrow is ERC721, VRFConsumerBaseV2, AutomationCompatibleInterfa
         uint256 _winnerPercentage,
         address vrfCoordinator,
         bytes32 vrfKeyHash,
-        uint64 subscriptionId,
+        uint256 subscriptionId,
         address _marketplaceAddress
     ) ERC721(_name, _symbol) 
-      VRFConsumerBaseV2(vrfCoordinator) 
+      VRFConsumerBaseV2Plus(vrfCoordinator) 
     {
         marketplaceAddress = _marketplaceAddress;
         feeAccount = payable(address(this));
@@ -98,7 +98,6 @@ contract LotteryEscrow is ERC721, VRFConsumerBaseV2, AutomationCompatibleInterfa
         winnerPercentage = _winnerPercentage;
         keyHash = vrfKeyHash;
         s_subscriptionId = subscriptionId;
-        COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     }
    
 
@@ -143,18 +142,24 @@ contract LotteryEscrow is ERC721, VRFConsumerBaseV2, AutomationCompatibleInterfa
         external
         returns (uint256 requestId)
     {
-        requestId = COORDINATOR.requestRandomWords(
-            keyHash,
-            s_subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
+        requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: keyHash,
+                subId: s_subscriptionId,
+                requestConfirmations: requestConfirmations,
+                callbackGasLimit: callbackGasLimit,
+                numWords: numWords,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
+                )
+            })
         );
         s_requests[requestId] = RequestStatus({
             randomWords: new uint256[](0),
             exists: true,
             fulfilled: false
         });
+        addressToRequestId[msg.sender] = requestId;
         requestIds.push(requestId);
         lastRequestId = requestId;
         emit RequestSent(requestId, numWords);

@@ -1,25 +1,37 @@
 require("@nomicfoundation/hardhat-toolbox");
-require('dotenv').config();
+require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 
 const INFURA_API_KEY = process.env.INFURA_API_KEY;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const SEPOLIA_RPC_URL =
+  process.env.SEPOLIA_RPC_URL || `https://sepolia.infura.io/v3/${INFURA_API_KEY}`;
+const accounts = PRIVATE_KEY
+  ? [PRIVATE_KEY.startsWith("0x") ? PRIVATE_KEY : `0x${PRIVATE_KEY}`]
+  : [];
 
 module.exports = {
-  solidity: "0.8.20",
-  // networks: {
-  //   mumbai: {
-  //     url : `https://polygon-mumbai.infura.io/v3/${INFURA_API_KEY}`,
-  //     accounts: [PRIVATE_KEY]
-  //   }
-  // }
-  networks: {
-    testnet: {
-      url: "https://bsc-testnet.bnbchain.org",
-      chainId: 97,
-      // gasPrice: 20000000000,
-      accounts: [PRIVATE_KEY]
+  solidity: {
+    version: "0.8.20",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
     },
-  }
+  },
+  networks: {
+    sepolia: {
+      url: SEPOLIA_RPC_URL,
+      chainId: 11155111,
+      accounts,
+    },
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
+  },
+  sourcify: {
+    enabled: true,
+  },
 };

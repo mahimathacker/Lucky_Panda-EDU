@@ -13,9 +13,20 @@ import "./LotteryEscrow.sol";
     mapping (address => string) collections;
     mapping (address => uint256) collectionsOfTokenId;
          address[] public CollectionAddresses;
-    address vrfCoordinator = 0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625;
-        bytes32 vrfKeyHash = 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c;
-        uint64 subscriptionId = 7485;
+    address vrfCoordinator = 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
+        bytes32 vrfKeyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+        uint256 subscriptionId;
+
+    function setVRFConfig(
+        address _vrfCoordinator,
+        bytes32 _vrfKeyHash,
+        uint256 _subscriptionId
+    ) external onlyOwner {
+        vrfCoordinator = _vrfCoordinator;
+        vrfKeyHash = _vrfKeyHash;
+        subscriptionId = _subscriptionId;
+    }
+
     function createToken(string memory name, string memory symbol, uint256 updateInterval, uint256 winnerPercentage) public {
        address _address = address(new LotteryEscrow(name, symbol, updateInterval,winnerPercentage, vrfCoordinator, vrfKeyHash, subscriptionId, address(this)));
        uint256 count = 0;
