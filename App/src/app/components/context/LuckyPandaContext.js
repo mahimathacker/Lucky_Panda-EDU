@@ -1,8 +1,5 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useState } from "react";
 import { toast } from "react-toastify";
-import { createHelia } from 'helia';
-import { unixfs } from '@helia/unixfs';
-import { json } from '@helia/json';
 
 import {
   MarketplaceContractAddress,
@@ -11,6 +8,8 @@ import {
   ChainlinkVRFContract,
   ChinlinkVRFAddress
 } from '../../constants/abi';
+import { getMetaMaskProvider } from './Web3Context';
+import { cacheIpfsJson, createLocalMetadataUri } from "../../utils/ipfsGateway";
 const ethers = require("ethers");
 
 export const LuckyPandaContext = createContext();
@@ -33,33 +32,8 @@ export const LuckyPandaContextProvider = (props) => {
   const [soldItems, setSoldItems] = useState([]);
   const [mycollectionUris, setMyCollectionUris] = useState([]);
   const [allCollectionUris, setAllCollectionUris] = useState([]);
-  const [helia, setHelia] = useState(null);
-  const [fs, setFs] = useState(null);
-  const [jsonHandler, setJsonHandler] = useState(null)
-  const [nodeId, setNodeId] = useState(null);
-  const [isOnline, setIsOnline] = useState(false);
 
-  const notify = () => toast("NFT Created Successfully !!");
-
-  // Initialize Helia instance on component mount
-  useEffect(() => {
-    const initHelia = async () => {
-      try {
-        const heliaNode = await createHelia();
-        const fsHandler = unixfs(heliaNode);
-        const jsonInstance = json(heliaNode);
-        const id = heliaNode.libp2p.peerId.toString();
-        setHelia(heliaNode);
-        setFs(fsHandler);
-        setJsonHandler(jsonInstance); setNodeId(id);
-        setIsOnline(heliaNode.libp2p.status === 'started');
-      } catch (error) {
-        console.error("Failed to initialize Helia:", error);
-      }
-    };
-    initHelia();
-  }, []);
-
+  const notify = () => toast.success("NFT collection created successfully");
 
   const nameEvent = (e) => setName(e.target.value);
   const symbolEvent = (e) => setSymbol(e.target.value);
@@ -69,60 +43,60 @@ export const LuckyPandaContextProvider = (props) => {
   const tokenResultTimeEvent = (e) => setResultTime(e.target.value);
   const tokenWinnerPercentageEvent = (e) => setWinnerPercentage(e.target.value);
 
-  // Function to add data to IPFS using Helia
-  const addDataToIPFS = async (content) => {
-    try {
-      if (!fs || !jsonHandler) throw new Error("IPFS handlers not initialized");
-
-      let cid;
-      if (typeof content === "string") {
-        // Handle string content
-        cid = await fs.addBytes(new TextEncoder().encode(content));
-      } else if (content instanceof Blob || content instanceof File) {
-        // Handle Blob/File content
-        const buffer = await content.arrayBuffer();
-        cid = await fs.addBytes(new Uint8Array(buffer));
-      } else if (typeof content === "object") {
-        // Handle JSON content
-        cid = await jsonHandler.add(content);
-      } else {
-        throw new Error("Unsupported content type");
-      }
-
-      return cid.toString();
-    } catch (error) {
-      console.error("Error adding data to IPFS:", error);
-      throw error;
-    }
-  };
-
-
-  // Function to handle image upload
   const handleImageUpload = async (imageFile) => {
-    try {
-      if (!imageFile) throw new Error("No image file provided");
-      const cid = await addDataToIPFS(imageFile);
-      console.log(cid, "cid");
+    if (!imageFile) throw new Error("No image file provided");
 
-      return `https://ipfs.io/ipfs/${cid}`;
-    } catch (error) {
-      console.error('Error uploading image to IPFS:', error);
-      toast.error("Failed to upload image");
-      return null;
-    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("Failed to read image"));
+      reader.readAsDataURL(imageFile);
+    });
   };
+
+  const getMarketplaceContract = async () => {
+    const ethereum = getMetaMaskProvider();
+    if (!ethereum) {
+      throw new Error("Please install or enable MetaMask");
+    }
+
+    const provider = new ethers.BrowserProvider(ethereum);
+    const network = await provider.getNetwork();
+
+    if (network.chainId !== 11155111n) {
+      throw new Error("Please switch MetaMask to Sepolia");
+    }
+
+    const code = await provider.getCode(MarketplaceContractAddress);
+    if (code === "0x") {
+      throw new Error("Marketplace contract not found on this network");
+    }
+
+    const signer = await provider.getSigner();
+    return new ethers.Contract(
+      MarketplaceContractAddress,
+      MarketplaceContractABI,
+      signer
+    );
+  };
+
   const onFormSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const lotteryContract = new ethers.Contract(
-        MarketplaceContractAddress,
-        MarketplaceContractABI,
-        signer
-      );
+      if (!tokenQuantity || Number(tokenQuantity) <= 0) {
+        throw new Error("Token quantity must be greater than zero");
+      }
+      if (!tokenPrice || Number(tokenPrice) <= 0) {
+        throw new Error("Token price must be greater than zero");
+      }
+
+      const ethereum = getMetaMaskProvider();
+      if (!ethereum) {
+        throw new Error("Please install or enable MetaMask");
+      }
+      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+      const lotteryContract = await getMarketplaceContract();
 
       let transactionCreate = await lotteryContract.createToken(
         name,
@@ -130,8 +104,33 @@ export const LuckyPandaContextProvider = (props) => {
         resultTime * 60,
         winnerPercentage
       );
+      toast.info("Creating NFT collection...");
       let txc = await transactionCreate.wait();
       console.log(txc);
+
+      const tokenCreatedLog = txc.logs
+        .map((log) => {
+          try {
+            return lotteryContract.interface.parseLog(log);
+          } catch (error) {
+            return null;
+          }
+        })
+        .find((log) => log && log.name === "TokenCreated");
+      const collectionAddress = tokenCreatedLog?.args?.tokenAddress;
+
+      if (!collectionAddress) {
+        throw new Error("Unable to read new collection address");
+      }
+
+      const imageUrl = uploadImg ? await handleImageUpload(uploadImg) : null;
+      console.log("LuckyPanda:create:imageUrl", imageUrl);
+
+      const quantity = Number(tokenQuantity);
+      const imgTokenUrl = Array.from({ length: quantity }, (_, index) => ({
+        tokenID: index,
+        url: imageUrl,
+      }));
 
       const metadata = {
         name,
@@ -140,29 +139,71 @@ export const LuckyPandaContextProvider = (props) => {
         tokenQuantity,
         resultTime,
         winnerPercentage,
+        imgTokenUrl,
         createdAt: new Date().toISOString(),
       };
-      console.log(metadata, "metadata");
+      console.log("LuckyPanda:create:metadata", metadata);
 
 
-      // Add metadata to IPFS
-      const metadataCid = await addDataToIPFS(metadata);
-      console.log(metadataCid, "metadataCID");
-
-      const uri = `https://ipfs.io/ipfs/${metadataCid}`;
-      console.log(uri, "uri");
+      const uri = createLocalMetadataUri(collectionAddress.toLowerCase());
+      console.log("LuckyPanda:create:metadataURI", uri);
+      cacheIpfsJson(uri, metadata);
 
       notify();
 
       const setCollectionOfUri = await lotteryContract.setCollectionUri(
-        MarketplaceContractAddress,
+        collectionAddress,
         uri
       );
-      console.log(setCollectionOfUri, "setCollectionUri");
+      console.log("LuckyPanda:create:setCollectionUriTx", {
+        collectionAddress,
+        uri,
+        tx: setCollectionOfUri,
+      });
 
+      toast.info("Saving collection metadata...");
       await setCollectionOfUri.wait();
+
+      const mintTx = await lotteryContract.bulkMintERC721(
+        collectionAddress,
+        0,
+        quantity
+      );
+      toast.info("Minting NFT tickets...");
+      await mintTx.wait();
+
+      const provider = new ethers.BrowserProvider(ethereum);
+      const signer = await provider.getSigner();
+      const collectionContract = new ethers.Contract(
+        collectionAddress,
+        NFTContractABI,
+        signer
+      );
+      const alreadyApproved = await collectionContract.isApprovedForAll(
+        accounts[0],
+        MarketplaceContractAddress
+      );
+      if (!alreadyApproved) {
+        toast.info("Approving marketplace to list NFT tickets...");
+        const approvalTx = await collectionContract.setApprovalForAll(
+          MarketplaceContractAddress,
+          true
+        );
+        await approvalTx.wait();
+      }
+
+      const listTx = await lotteryContract.createMarketItem(
+        collectionAddress,
+        0,
+        quantity,
+        ethers.parseEther(tokenPrice.toString())
+      );
+      toast.info("Listing NFT tickets...");
+      await listTx.wait();
+      toast.success("NFT tickets minted and listed");
     } catch (error) {
       console.error("Error submitting form:", error);
+      toast.error(error.message || "Failed to create collection");
     } finally {
       setName("");
       setTokenPrice("");
@@ -174,42 +215,47 @@ export const LuckyPandaContextProvider = (props) => {
   };
 
   async function getAllCollection() {
-    const accounts = await window.ethereum.request({
+    const ethereum = getMetaMaskProvider();
+    if (!ethereum) {
+      throw new Error("Please install or enable MetaMask");
+    }
+    const accounts = await ethereum.request({
       method: "eth_requestAccounts",
     });
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const MarketpaceContract = new ethers.Contract(
-      MarketplaceContractAddress,
-      MarketplaceContractABI,
-      signer
-    );
+    const MarketpaceContract = await getMarketplaceContract();
 
-    const allContractAddresses = await MarketpaceContract.getAllContractAddresses();
-    console.log(allContractAddresses, "allContractAddresses");
+    try {
+      const allContractAddresses = await MarketpaceContract.getAllCollectionAddresses();
+      console.log(allContractAddresses, "allContractAddresses");
 
-    const collectionuris = await Promise.all(
-      allContractAddresses.map(async (addrs) => {
-        const uri = await MarketpaceContract.getCollectionUri(addrs);
-        const soldItems = await MarketpaceContract.getAllSoldItems(addrs);
-        return { address: addrs, uri: uri, soldItems: soldItems.toString() };
-      })
-    );
-    setCollectionUris(collectionuris);
-    setSoldItems(soldItems);
+      const collectionuris = await Promise.all(
+        allContractAddresses.map(async (addrs) => {
+          const uri = await MarketpaceContract.getCollectionUri(addrs);
+          const soldItems = await MarketpaceContract.getAllSoldItems(addrs);
+          return {
+            address: addrs,
+            uri: uri,
+            soldItems: soldItems.map((id) => id.toString()),
+          };
+        })
+      );
+      setCollectionUris(collectionuris);
+      setSoldItems(soldItems);
+    } catch (error) {
+      console.error("Error fetching collections:", error);
+      toast.error(error.message || "Failed to load collections");
+    }
   }
 
   async function getAllMyCollection() {
-    const accounts = await window.ethereum.request({
+    const ethereum = getMetaMaskProvider();
+    if (!ethereum) {
+      throw new Error("Please install or enable MetaMask");
+    }
+    const accounts = await ethereum.request({
       method: "eth_requestAccounts",
     });
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const MarketpaceContract = new ethers.Contract(
-      MarketplaceContractAddress,
-      MarketplaceContractABI,
-      signer
-    );
+    const MarketpaceContract = await getMarketplaceContract();
 
     try {
       const myCollectionAddresses = await MarketpaceContract.getOwnerContractAddresses();
@@ -224,39 +270,65 @@ export const LuckyPandaContextProvider = (props) => {
       setMyCollectionUris(collectionuris);
     } catch (error) {
       console.error("Error fetching my collections:", error);
+      toast.error(error.message || "Failed to load your collections");
     }
   }
 
   async function getAllContractCollection() {
-    const accounts = await window.ethereum.request({
+    const ethereum = getMetaMaskProvider();
+    if (!ethereum) {
+      throw new Error("Please install or enable MetaMask");
+    }
+    const accounts = await ethereum.request({
       method: "eth_requestAccounts",
     });
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const MarketpaceContract = new ethers.Contract(
-      MarketplaceContractAddress,
-      MarketplaceContractABI,
-      signer
-    );
+    const MarketpaceContract = await getMarketplaceContract();
 
-    const allContractAddresses = await MarketpaceContract.getAllCollectionAddresses();
-    console.log(allContractAddresses);
+    try {
+      const allContractAddresses = await MarketpaceContract.getAllCollectionAddresses();
+      console.log(allContractAddresses);
 
-    const allcollectionuris = await Promise.all(
-      allContractAddresses.map(async (addrs) => {
-        const uri = await MarketpaceContract.getCollectionUri(addrs);
-        const [winnerAddress, winningTokenId] = await MarketpaceContract.getCollectionWinner(addrs);
-        const hasWinner = winnerAddress !== '0x0000000000000000000000000000000000000000';
-        return {
-          address: addrs,
-          uri: uri,
-          hasWinner: hasWinner,
-          winnerAddress: winnerAddress,
-          winningTokenId: winningTokenId
-        }
-      })
-    );
-    setAllCollectionUris(allcollectionuris);
+      const allcollectionuris = await Promise.all(
+        allContractAddresses.map(async (addrs) => {
+          const uri = await MarketpaceContract.getCollectionUri(addrs);
+          const [winnerAddress, winningTokenId] = await MarketpaceContract.getCollectionWinner(addrs);
+          const collectionInfo = await MarketpaceContract.collectionInfo(addrs);
+          const requestId = await MarketpaceContract.collectionRequestIds(addrs);
+          const now = Math.floor(Date.now() / 1000);
+          const lastTimeStamp = Number(collectionInfo.lastTimeStamp);
+          const updateInterval = Number(collectionInfo.updateInterval);
+          const intervalPassed = now - lastTimeStamp > updateInterval;
+          const hasWinner = winnerAddress !== '0x0000000000000000000000000000000000000000';
+          const hasPendingRequest = requestId.toString() !== "0";
+          return {
+            address: addrs,
+            uri: uri,
+            hasWinner: hasWinner,
+            winnerAddress: winnerAddress,
+            winningTokenId: winningTokenId,
+            allSold: collectionInfo.allSold,
+            intervalPassed: intervalPassed,
+            updateInterval: updateInterval,
+            lastTimeStamp: lastTimeStamp,
+            requestId: requestId.toString(),
+            hasPendingRequest: hasPendingRequest,
+            upkeepReady: collectionInfo.allSold && intervalPassed && !hasWinner && !hasPendingRequest
+          }
+        })
+      );
+      console.log("Chainlink:collectionStatuses", allcollectionuris);
+      setAllCollectionUris(allcollectionuris);
+
+      const winnerCount = allcollectionuris.filter((collection) => collection.hasWinner).length;
+      if (winnerCount > 0) {
+        toast.success(`${winnerCount} lucky draw result${winnerCount > 1 ? "s are" : " is"} out`);
+      } else {
+        toast.info("No lucky draw results yet");
+      }
+    } catch (error) {
+      console.error("Error fetching lucky draw results:", error);
+      toast.error(error.message || "Failed to load lucky draw results");
+    }
   }
 
   const Item = {
@@ -299,8 +371,6 @@ export const LuckyPandaContextProvider = (props) => {
         getAllContractCollection,
         allCollectionUris,
         handleImageUpload,
-        nodeId,
-        isOnline
       }}
     >
       {props.children}

@@ -4,20 +4,16 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 240, 245, 249;
-  /* Light blue shade */
-  --background-end-rgb: 222, 228, 230;
-  /* Slightly darker blue shade */
+  --foreground-rgb: 39, 36, 30;
+  --background-start-rgb: 255, 252, 245;
+  --background-end-rgb: 246, 238, 222;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 25, 42, 86;
-    /* Dark blue shade */
-    --background-end-rgb: 15, 32, 76;
-    /* Even darker blue */
+    --foreground-rgb: 39, 36, 30;
+    --background-start-rgb: 255, 252, 245;
+    --background-end-rgb: 246, 238, 222;
   }
 }
 
@@ -29,4 +25,5 @@ body {
   min-height: 100vh;
 
   background-attachment: fixed;
+  font-family: "Poppins", sans-serif;
 }

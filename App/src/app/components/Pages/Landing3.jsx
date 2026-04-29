@@ -7,7 +7,7 @@ export default function Landing3() {
     <section className="how-it-works-section py-5 mb-12">
       <div className="container">
       <div className="d-flex justify-content-center align-items-center">
-  <h2 className="text-white fw-bold mb-10 py-2 px-16 rounded-5" style={{ backgroundColor: '#191970'}}> 
+  <h2 className="text-white fw-bold mb-10 py-2 px-16 rounded-5" style={{ backgroundColor: '#8f5f16'}}> 
     How It Works
   </h2>
 </div>        

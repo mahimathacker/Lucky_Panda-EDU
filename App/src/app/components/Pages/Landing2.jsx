@@ -16,12 +16,12 @@ export default function Landing2() {
           <div className="col-lg-7">
             <h2 className="display-4 fw-bold lh-1 mb-3">Unlock the Thrill of NFTs with Lucky Panda: Your Gateway to Blockchain-based Wins</h2>
             <ul className="list-unstyled">
-              <li className="mb-2"><i className="bi bi-check-circle-fill text-primary me-2"></i><FontAwesomeIcon icon={faPalette} /> Innovative NFT platform</li>
-              <li className="mb-2"><i className="bi bi-check-circle-fill text-primary me-2"></i><FontAwesomeIcon icon={faTicketAlt} /> Merge art with lotteries</li>
-              <li className="mb-2"><i className="bi bi-check-circle-fill text-primary me-2"></i><FontAwesomeIcon icon={faLock} /> Transparent and fair with blockchain technology</li>
-              <li className="mb-2"><i className="bi bi-check-circle-fill text-primary me-2"></i><FontAwesomeIcon icon={faGear} /> Exclusive digital art ownership with each NFT</li>
-              <li className="mb-2"><i className="bi bi-check-circle-fill text-primary me-2"></i><FontAwesomeIcon icon={faTrophy} /> Every NFT a potential winning ticket</li>
-              <li className="mb-2"><i className="bi bi-check-circle-fill text-primary me-2"></i><FontAwesomeIcon icon={faDice} />  Automated draws with Chainlink VRF for fair play</li>
+              <li className="mb-2"><i className="bi bi-check-circle-fill me-2"></i><FontAwesomeIcon icon={faPalette} /> Innovative NFT platform</li>
+              <li className="mb-2"><i className="bi bi-check-circle-fill me-2"></i><FontAwesomeIcon icon={faTicketAlt} /> Merge art with lotteries</li>
+              <li className="mb-2"><i className="bi bi-check-circle-fill me-2"></i><FontAwesomeIcon icon={faLock} /> Transparent and fair with blockchain technology</li>
+              <li className="mb-2"><i className="bi bi-check-circle-fill me-2"></i><FontAwesomeIcon icon={faGear} /> Exclusive digital art ownership with each NFT</li>
+              <li className="mb-2"><i className="bi bi-check-circle-fill me-2"></i><FontAwesomeIcon icon={faTrophy} /> Every NFT a potential winning ticket</li>
+              <li className="mb-2"><i className="bi bi-check-circle-fill me-2"></i><FontAwesomeIcon icon={faDice} />  Automated draws with Chainlink VRF for fair play</li>
             </ul>
           </div>
         </div>

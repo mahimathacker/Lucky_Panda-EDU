@@ -1,7 +1,7 @@
 import React, {useState, useEffect, useContext} from "react";
 import { LuckyPandaContext } from "../context/LuckyPandaContext";
-import axios from "axios";
 import { Link } from 'react-router-dom';
+import { fetchIpfsJson, isSupportedMetadataUri } from "../../utils/ipfsGateway";
 
 export default function LuckyDraw() {
 
@@ -15,43 +15,48 @@ export default function LuckyDraw() {
       }, []);
     
       useEffect(() => {
-        console.log(allCollectionUris,"collectionUrisss")
-        let images = [];
-      
-        allCollectionUris.map(async(collection) => {      
-        // // let tokenIds = await MarketpaceContract.getAllTokenId(collection.address);
-        // // setAllTokenIds(tokenIds.toString());
-      
-        
-          axios.get(collection.uri)
-           .then((response) => {
-           console.log(response,"response");
-            let obj = {};
-            obj.address = collection.address;
-            obj.hasWinner = collection.hasWinner;
-            obj.winnerAddress = collection.winnerAddress;
-            obj.winningTokenId = collection.winningTokenId;
-            obj.name = response.data.name;
-            obj.price = response.data.tokenPrice;
-            // tokenIds.map((id) => {
-            //   obj.tokenIds =  id.toString();
-            
-            //  })
-            
-            obj.images = [];
-            console.log(response.data.imgTokenUrl,"imgTokenUrl");
-            response.data.imgTokenUrl.map((uri) => {
-            obj.images.push(uri);
+        if (!Array.isArray(allCollectionUris) || allCollectionUris.length === 0) {
+          setImg([]);
+          return;
+        }
+
+        const loadCollections = async () => {
+          const localCollections = allCollectionUris.filter((collection) =>
+            isSupportedMetadataUri(collection.uri)
+          );
+
+          const images = await Promise.all(
+            localCollections.map(async (collection) => {
+              const response = await fetchIpfsJson(collection.uri);
+              const metadata = response.data || {};
+              const imgTokenUrl = Array.isArray(metadata.imgTokenUrl)
+                ? metadata.imgTokenUrl
+                : [];
+
+              return {
+                address: collection.address,
+                hasWinner: collection.hasWinner,
+                winnerAddress: collection.winnerAddress,
+                winningTokenId: collection.winningTokenId,
+                allSold: collection.allSold,
+                intervalPassed: collection.intervalPassed,
+                requestId: collection.requestId,
+                hasPendingRequest: collection.hasPendingRequest,
+                upkeepReady: collection.upkeepReady,
+                name: metadata.name || "Lucky Panda Collection",
+                price: metadata.tokenPrice,
+                images: imgTokenUrl.length > 0
+                  ? imgTokenUrl
+                  : [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+              };
             })
-            console.log(obj,"obj");
-           images.push(obj);
-           console.log(images, "images");
-           setImg(images);
-           })
-          .catch((err) => {
-            console.log(err,"error from axious response");
-          })
-          })
+          );
+
+          console.log("Chainlink:LuckyDrawStatus", images);
+          setImg(images);
+        };
+
+        loadCollections();
       },[allCollectionUris])
 
     return(
@@ -64,7 +69,7 @@ export default function LuckyDraw() {
               <img src={i.images[0].url} className="card-img-top" alt={`${i.name}'s collection`} />
               <div className="card-body">
                 <h5 className="card-title">{i.name}'s Collection</h5>
-                <p className="card-text text-muted mb-2">Collection Address: <span className="text-primary">{i.address}</span></p>
+                <p className="card-text text-muted mb-2">Collection Address: <span className="lucky-address">{i.address}</span></p>
                 <div className="card-text mb-3">
                   {i.hasWinner ? (
                     <>
@@ -74,8 +79,21 @@ export default function LuckyDraw() {
                         <p><strong>Winner Ticket Id:</strong> {i.winningTokenId.toString()}</p>
                       </div>
                     </>
+                  ) : i.hasPendingRequest ? (
+                    <>
+                      <span className="badge rounded-pill bg-info text-dark">VRF Requested</span>
+                      <p className="mt-2 mb-0"><strong>Request Id:</strong> {i.requestId}</p>
+                    </>
+                  ) : i.upkeepReady ? (
+                    <span className="badge rounded-pill bg-primary">Ready for Automation</span>
                   ) : (
-                    <span className="badge rounded-pill bg-warning text-dark">Winner will be declared soon</span>
+                    <>
+                      <span className="badge rounded-pill bg-warning text-dark">Waiting for upkeep conditions</span>
+                      <div className="mt-2 small text-muted">
+                        <p className="mb-1">All tickets sold: {i.allSold ? "Yes" : "No"}</p>
+                        <p className="mb-0">Result time passed: {i.intervalPassed ? "Yes" : "No"}</p>
+                      </div>
+                    </>
                   )}
                 </div>
                 <Link to ={`/all-collections/${i.address}`} className="nav-link">   

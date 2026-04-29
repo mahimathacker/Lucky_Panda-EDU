@@ -1,8 +1,7 @@
 import React, { useState, useContext, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { LuckyPandaContext } from "../context/LuckyPandaContext";
-import { MarketplaceContractABI, MarketplaceContractAddress } from "../../constants/abi";
-import axios from "axios";
+import { fetchIpfsJson, isSupportedMetadataUri } from "../../utils/ipfsGateway";
 
 export default function AllCollections() {
 
@@ -14,6 +13,10 @@ export default function AllCollections() {
   const luckyPandaContext = useContext(LuckyPandaContext);
 
   const { mycollectionUris, getAllMyCollection } = luckyPandaContext;
+
+  useEffect(() => {
+    getAllMyCollection();
+  }, []);
 
   useEffect(() => {
     if (address && mycollectionUris) {
@@ -29,37 +32,40 @@ export default function AllCollections() {
 
 
   useEffect(() => {
-    console.log(mycollectionUris, "collectionUris");
+    if (!Array.isArray(myallcollections) || myallcollections.length === 0) {
+      setImg([]);
+      return;
+    }
 
-    let images = [];
-    myallcollections.map(async (collection) => {
-      // // let tokenIds = await MarketpaceContract.getAllTokenId(collection.address);
-      // // setAllTokenIds(tokenIds.toString());
+    const loadCollections = async () => {
+      const localCollections = myallcollections.filter((collection) =>
+        isSupportedMetadataUri(collection.uri)
+      );
 
+      const images = await Promise.all(
+        localCollections.map(async (collection) => {
+          const response = await fetchIpfsJson(collection.uri);
+          if (!response.data) return null;
 
-      axios.get(collection.uri)
-        .then((response) => {
-          console.log(response, "response");
-          let obj = {};
-          obj.address = collection.address;
-          obj.name = response.data.name;
-          obj.price = response.data.tokenPrice;
-          // tokenIds.map((id) => {
-          //   obj.tokenIds =  id.toString();
+          const imgTokenUrl = Array.isArray(response.data.imgTokenUrl)
+            ? response.data.imgTokenUrl
+            : [];
 
-          //  })
-
-          obj.images = [];
-          response.data.imgTokenUrl.map((uri) => {
-            obj.images.push(uri);
-          })
-          images.push(obj);
-          setImg(images);
+          return {
+            address: collection.address,
+            name: response.data.name || "Lucky Panda Collection",
+            price: response.data.tokenPrice,
+            images: imgTokenUrl.length > 0
+              ? imgTokenUrl
+              : [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+          };
         })
-        .catch((err) => {
-          console.log(err, "error from axious response");
-        })
-    })
+      );
+
+      setImg(images.filter((item) => item && item.images.length > 0));
+    };
+
+    loadCollections();
   }, [myallcollections])
   console.log(myallcollections, "collections");
   console.log(Img, "Imggg");

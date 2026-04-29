@@ -39,6 +39,12 @@
   min-height: 100vh;
 }
 
+.hero-section {
+  background:
+    radial-gradient(circle at 82% 28%, rgba(245, 180, 47, 0.22), transparent 30%),
+    linear-gradient(135deg, #fffdf7 0%, #f7efe1 100%);
+}
+
 .content-section {
   padding: 2rem; /* Add padding for better spacing */
 }
@@ -64,25 +70,30 @@
   font-size: 2.5rem; /* Adjust the size for better readability */
   font-weight: bold;
   margin-bottom: 0.5rem;
-  color: #333; /* Dark text for contrast */
+  color: #2f2a22; /* Dark text for contrast */
 }
 
 .lead {
-  color: #555; /* Slightly lighter color for the description */
+  color: #6d6253; /* Slightly lighter color for the description */
   font-size: 1.2rem;
 }
 
 .btn-primary {
-  background-color: #0056b3; /* Example primary color */
-  border-color: #0056b3; /* Example border color */
+  background-color: #b97712; /* Warm gold primary color */
+  border-color: #b97712;
+  color: #fffaf0;
   padding: 0.75rem 1.5rem; /* Larger button padding */
   font-size: 1rem; /* Larger font size for the button */
   border-radius: 0.5rem; /* Rounded corners for the button */
-  transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+  box-shadow: 0 10px 24px rgba(185, 119, 18, 0.2);
+  transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
 }
 
 .btn-primary:hover {
-  background-color: #004494; /* Darken the button on hover */
+  background-color: #95600f;
+  border-color: #95600f;
+  color: #fffaf0;
+  transform: translateY(-1px);
 }
   
 
@@ -149,7 +160,7 @@
 
   .how-it-works-section {
     margin-top: 7%;
-    background-color: #8df8a5;
+    background: linear-gradient(180deg, #fffaf0 0%, #f4ead7 100%);
   }
   
   .step-card {
@@ -159,7 +170,8 @@
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    background-color: #ffbc5c;
+    background-color: #fffdf7;
+    border: 1px solid rgba(181, 122, 32, 0.2);
   }
   
   .card-body h5 {
@@ -175,7 +187,7 @@
   
   /* Styling for the arrows */
   .fa-arrow-right {
-    color: #191970; /* Match the arrow color with your design */
+    color: #b97712; /* Match the arrow color with your design */
   }
   
 
@@ -193,35 +205,77 @@
 /* Footer */
 
 .lucky-panda-footer {
-  /* background-color: #343a40; Dark footer background */
-  color: #f8f9fa; /* Light text color */
+  background: linear-gradient(180deg, #fffdf7 0%, #f2e6d1 100%);
+  border-top: 1px solid rgba(143, 95, 22, 0.18);
+  color: #3a342a;
+  padding: 2.5rem 0 1.5rem;
+}
+
+.footer-logo {
+  width: 128px;
+  height: auto;
+  margin-bottom: 0.75rem;
+}
+
+.lucky-panda-footer h5 {
+  color: #2f2a22;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.footer-copy {
+  color: #6d6253;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 420px;
+}
+
+.footer-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.footer-links li {
+  margin-bottom: 0.45rem;
 }
 
 .lucky-panda-footer a {
-  color: #f8f9fa; /* Light link color */
+  color: #6d6253;
+  text-decoration: none;
 }
 
 .lucky-panda-footer a:hover {
-  color: #ffc107; /* Gold color for hover state */
+  color: #b97712;
 }
 
-/* Social icons style */
-.fab {
-  font-size: 1.5rem; /* Larger icons for visibility */
-}
-.social-icon {
-  margin-right: 10px; /* Spacing between icons */
-  font-size: 24px; /* Size of icons */
-  color: #fff; /* Icon color */
+.footer-bottom {
+  border-top: 1px solid rgba(143, 95, 22, 0.16);
+  color: #7a6d5b;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  text-align: center;
 }
 
-.social-icon:hover {
-  color: #ccc; /* Icon hover color */
+.lucky-address {
+  color: #8f5f16;
+  overflow-wrap: anywhere;
+}
+
+header {
+  position: relative;
+  z-index: 1050;
 }
 
 .navbar {
-  height: 100px; /* Adjust this value to fit your design */
+  background: rgba(255, 252, 245, 0.9);
+  backdrop-filter: blur(12px);
+  min-height: 128px; /* Adjust this value to fit your design */
+  height: auto;
   align-items: center; /* This will vertically center the logo and nav items */
+  position: relative;
+  z-index: 1050;
 }
 
 /* If your logo height exceeds the navbar height, you might need to adjust padding or size */
@@ -239,54 +293,70 @@
 
 /* Logo image adjustments */
 .navbar-brand img {
-  height: 60px; /* Adjust logo height for balance */
+  height: 116px; /* Adjust logo height for balance */
   width: auto; /* Maintain aspect ratio */
   transition: height 0.3s; /* Smooth transition for any height changes */
 }
 
 /* Navigation links styling */
 .navbar-nav .nav-link {
-  color: #333; /* Dark gray for contrast */
-  font-weight: 500; /* Medium font weight for readability */
-  padding: 0.5rem 1rem; /* Spacing around the links */
+  color: #3a342a; /* Dark gray for contrast */
+  font-weight: 600; /* Medium font weight for readability */
+  padding: 0.45rem 0.75rem; /* Spacing around the links */
+  font-size: 0.98rem;
   transition: color 0.3s; /* Smooth transition for hover effect */
 }
 
 .navbar-nav .nav-link:hover,
 .navbar-nav .nav-link:focus {
-  color: #0056b3; /* Highlight color on hover or focus */
+  color: #b97712; /* Highlight color on hover or focus */
 }
 
 /* Dropdown menu styling */
 .dropdown-menu {
   border: none; /* Remove default border */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Consistent shadow with navbar */
+  background: #fffdf7;
+  box-shadow: 0 12px 30px rgba(80, 58, 27, 0.12); /* Consistent shadow with navbar */
   padding: 1rem; /* Spacing inside the dropdown */
+  z-index: 2000;
 }
 
 .dropdown-item {
-  color: #333; /* Match link color */
+  color: #3a342a; /* Match link color */
   transition: background-color 0.3s, color 0.3s; /* Smooth transitions for hover */
 }
 
 .dropdown-item:hover,
 .dropdown-item:focus {
-  background-color: #f8f9fa; /* Light background on hover for dropdown items */
-  color: #0056b3; /* Highlight color */
+  background-color: #f7eddc; /* Light background on hover for dropdown items */
+  color: #95600f; /* Highlight color */
 }
 
 /* Wallet connect button styling */
 .btn-outline-secondary {
-  color: #333; /* Match link color */
-  border-color: #ced4da; /* Subtle border color */
+  color: #3a342a; /* Match link color */
+  border-color: #d7c6ab; /* Subtle border color */
   transition: color 0.3s, background-color 0.3s, border-color 0.3s; /* Smooth transitions */
+}
+
+.btn-secondary.dropdown-toggle {
+  background-color: #6f7578;
+  border-color: #6f7578;
+  min-width: 48px;
+  min-height: 42px;
+}
+
+.btn-secondary.dropdown-toggle:hover,
+.btn-secondary.dropdown-toggle:focus {
+  background-color: #5b6164;
+  border-color: #5b6164;
 }
 
 .btn-outline-secondary:hover,
 .btn-outline-secondary:focus {
-  color: #fff; /* White text on hover */
-  background-color: #0056b3; /* Highlight background color */
-  border-color: #0056b3; /* Matching border color */
+  color: #fffaf0; /* White text on hover */
+  background-color: #b97712; /* Highlight background color */
+  border-color: #b97712; /* Matching border color */
 }
 
 /* Responsive adjustments */
@@ -296,7 +366,7 @@
   }
 
   .navbar-brand img {
-    height: 50px; /* Smaller logo on mobile */
+    height: 72px; /* Smaller logo on mobile */
   }
 }
 

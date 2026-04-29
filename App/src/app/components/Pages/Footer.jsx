@@ -1,40 +1,37 @@
 import React from 'react';
 import './Index.css'; // Make sure to create this CSS file and include your styles
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXTwitter, faDiscord, faInstagram, faFacebookF } from '@fortawesome/free-brands-svg-icons';
+import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="lucky-panda-footer py-4 bg-dark text-white">
+    <footer className="lucky-panda-footer">
       <div className="container">
-        <div className="row">
-          <div className="col-lg-4 mb-3 mb-lg-0">
-            <h4 className="mb-3">Lucky Panda</h4>
-            <p className="small">Your gateway to exciting NFT-based lotteries with fair and secure draws.</p>
+        <div className="row align-items-start g-4">
+          <div className="col-lg-5">
+            <img src="/LuckyPandaLogo.png" alt="Lucky Panda" className="footer-logo" />
+            <p className="footer-copy">
+              NFT ticket collections, verifiable draws, and creator-led prize pools on-chain.
+            </p>
           </div>
 
-          <div className="col-lg-4 mb-3 mb-lg-0">
-            <h4 className="mb-3">Quick Links</h4>
-            <ul className="list-unstyled">
-              <li><a href="/terms">Terms of Service</a></li>
-              <li><a href="/privacy">Privacy Policy</a></li>
-              <li><a href="/about">About Us</a></li>
-              <li><a href="/support">Customer Support</a></li>
+          <div className="col-6 col-lg-3">
+            <h5>Explore</h5>
+            <ul className="footer-links">
+              <li><Link to="/create-lottery">Create Lottery</Link></li>
+              <li><Link to="/NFT-collections">NFT Readership</Link></li>
+              <li><Link to="/lucky-draw-collections">Lucky Draw</Link></li>
             </ul>
           </div>
 
-          <div className="col-lg-4">
-            <h4 className="mb-3">Follow Us</h4>
-            <FontAwesomeIcon icon={faXTwitter} className="social-icon" />
-            <FontAwesomeIcon icon={faDiscord}  className="social-icon"/>
-            <FontAwesomeIcon icon={faInstagram}  className="social-icon"/>
-            <FontAwesomeIcon icon={faFacebookF} className="social-icon" />
-
+          <div className="col-6 col-lg-4">
+            <h5>Network</h5>
+            <p className="footer-copy mb-1">Powered by Sepolia, Chainlink VRF, and Automation.</p>
+            <p className="footer-copy mb-0">Use testnet ETH only.</p>
           </div>
         </div>
 
-        <div className="text-center py-4 border-top mt-4">
-          <p className="small mb-0">&copy; {new Date().getFullYear()} Lucky Panda. All Rights Reserved.</p>
+        <div className="footer-bottom">
+          <p className="small mb-0">&copy; {new Date().getFullYear()} Lucky Panda.</p>
         </div>
       </div>
     </footer>

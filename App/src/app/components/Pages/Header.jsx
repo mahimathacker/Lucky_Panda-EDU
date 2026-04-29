@@ -23,7 +23,7 @@ export default function Header() {
       <nav className="navbar navbar-expand-lg">
         <div className="container d-flex justify-content-between align-items-center  ">
           <Link to="/" className="navbar-brand">
-          <img src="/LuckyPandaLogo.png" alt="LuckyPanda Logo" style={{ height: '140px'}} /> {/* Adjust the height as needed */}
+          <img src="/LuckyPandaLogo.png" alt="LuckyPanda Logo" />
   
           </Link>
           <div className="d-flex flex-row align-items-center">

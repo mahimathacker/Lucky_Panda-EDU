@@ -1,8 +1,10 @@
 import React, { useState, useContext, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { LuckyPandaContext } from "../context/LuckyPandaContext";
+import { getMetaMaskProvider } from "../context/Web3Context";
 import { MarketplaceContractABI, MarketplaceContractAddress } from "../../constants/abi";
-import axios from "axios";
+import { toast } from "react-toastify";
+import { fetchIpfsJson, isSupportedMetadataUri } from "../../utils/ipfsGateway";
 const ethers = require("ethers");
 
 export default function AllCollections() {
@@ -15,8 +17,29 @@ export default function AllCollections() {
 
   const { address } = useParams();
 
+  function getSoldTokenIds(collectionAddress) {
+    const collection = collections.find(
+      (item) => item.address.toLowerCase() === collectionAddress.toLowerCase()
+    );
+
+    if (!collection || !collection.soldItems) return [];
+    if (Array.isArray(collection.soldItems)) {
+      return collection.soldItems.map((id) => id.toString());
+    }
+
+    return collection.soldItems
+      .toString()
+      .split(",")
+      .filter(Boolean);
+  }
+
   async function purchaseItem(address, tokenID) {
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    const ethereum = getMetaMaskProvider();
+    if (!ethereum) {
+      throw new Error("Please install or enable MetaMask");
+    }
+
+    const provider = new ethers.BrowserProvider(ethereum);
     const signer = await provider.getSigner();
     const MarketpaceContract = new ethers.Contract(
       MarketplaceContractAddress,
@@ -27,25 +50,36 @@ export default function AllCollections() {
       const totalPrice = await MarketpaceContract.getTotalPrice(address, tokenID);
       console.log(tokenID, address, totalPrice, "callPurchaseArguments");
       console.log(totalPrice, "value");
+      toast.info("Confirm NFT ticket purchase in MetaMask");
       const purchaseItemTx = await MarketpaceContract.purchaseItem(address, tokenID, {
         value: totalPrice,
       });
 
+      toast.info("Purchasing NFT ticket...");
       const txReceipt = await purchaseItemTx.wait();
       console.log(txReceipt, "txReceipt");
       if (txReceipt && txReceipt.status === 1) {
         console.log("NFT purchased");
-        //   toast.success("🚀 NFT Purchased! Welcome to the world of digital art.", {
-        //     position: "top-right",
-        //     autoClose: 5000,
-        //     hideProgressBar: false,
-        //     closeOnClick: true,
-        //     pauseOnHover: true,
-        //     draggable: true,
-        //     progress: undefined,
-        // });
+        toast.success("NFT ticket purchased");
+        setCollections((currentCollections) =>
+          currentCollections.map((collection) => {
+            if (collection.address.toLowerCase() !== address.toLowerCase()) {
+              return collection;
+            }
+
+            const soldItems = Array.isArray(collection.soldItems)
+              ? collection.soldItems.map((id) => id.toString())
+              : collection.soldItems?.toString().split(",").filter(Boolean) || [];
+
+            return {
+              ...collection,
+              soldItems: Array.from(new Set([...soldItems, tokenID.toString()])),
+            };
+          })
+        );
       } else {
         console.log("Transaction failed or was dropped");
+        toast.error("NFT purchase failed");
       }
     } catch (error) {
       console.error("Transaction submission failed:", error);
@@ -54,6 +88,7 @@ export default function AllCollections() {
       if (error.transaction) {
         console.log("Transaction data:", error.transaction);
       }
+      toast.error(error.shortMessage || error.message || "NFT purchase failed");
     }
   }
 
@@ -72,36 +107,65 @@ export default function AllCollections() {
 
   useEffect(() => {
     console.log(collectionUris, "collectionUris")
-    let images = [];
+    if (!Array.isArray(collections) || collections.length === 0) {
+      setImg([]);
+      return;
+    }
 
-    collections.map(async (collection) => {
-      // // let tokenIds = await MarketpaceContract.getAllTokenId(collection.address);
-      // // setAllTokenIds(tokenIds.toString());
+    const loadCollections = async () => {
+      const localCollections = collections.filter((collection) =>
+        isSupportedMetadataUri(collection.uri)
+      );
 
+      if (localCollections.length === 0) {
+        setImg([]);
+        return;
+      }
 
-      axios.get(collection.uri)
-        .then((response) => {
-          console.log(response, "response");
-          let obj = {};
-          obj.address = collection.address;
-          obj.name = response.data.name;
-          obj.price = response.data.tokenPrice;
-          // tokenIds.map((id) => {
-          //   obj.tokenIds =  id.toString();
+      const images = await Promise.all(
+        localCollections
+          .map(async (collection) => {
+            try {
+              const response = await fetchIpfsJson(collection.uri);
+              if (!response.data) {
+                return {
+                  address: collection.address,
+                  name: "Lucky Panda Collection",
+                  price: "",
+                  metadataUnavailable: true,
+                  images: [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+                };
+              }
 
-          //  })
+              const imgTokenUrl = Array.isArray(response.data.imgTokenUrl)
+                ? response.data.imgTokenUrl
+                : [];
 
-          obj.images = [];
-          response.data.imgTokenUrl.map((uri) => {
-            obj.images.push(uri);
+              return {
+                address: collection.address,
+                name: response.data.name || "Lucky Panda Collection",
+                price: response.data.tokenPrice,
+                images: imgTokenUrl.length > 0
+                  ? imgTokenUrl
+                  : [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+              };
+            } catch (err) {
+              console.log(err, "error loading collection metadata");
+              return {
+                address: collection.address,
+                name: "Lucky Panda Collection",
+                price: "",
+                metadataUnavailable: true,
+                images: [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+              };
+            }
           })
-          images.push(obj);
-          setImg(images);
-        })
-        .catch((err) => {
-          console.log(err, "error from axious response");
-        })
-    })
+      );
+
+      setImg(images.filter((item) => item && item.images.length > 0));
+    };
+
+    loadCollections();
   }, [collections])
   console.log(collections, "collections");
   console.log(Img, "Imggg");
@@ -118,11 +182,7 @@ export default function AllCollections() {
 
             <div className="row row-cols-1 row-cols-md-3 g-4">
               {i.images.map((img) => {
-                // Check if the tokenId is in the sold items list
-                const isSold = collections.some(
-                  (collection) => collection.address === i.address &&
-                    collection.soldItems.includes(img.tokenID)
-                );
+                const isSold = getSoldTokenIds(i.address).includes(img.tokenID.toString());
 
                 return (
                   <div className="col" key={img.tokenID}>

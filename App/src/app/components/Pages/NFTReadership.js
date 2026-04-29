@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
 import { LuckyPandaContext } from "../context/LuckyPandaContext";
 import { MarketplaceContractABI, MarketplaceContractAddress } from "../../constants/abi";
+import { fetchIpfsJson, isSupportedMetadataUri } from "../../utils/ipfsGateway";
 const ethers = require("ethers");
 
 
@@ -18,44 +18,93 @@ export default function NFTReadership() {
 
   const { collectionUris, getAllCollection } = luckyPandaContext;
   useEffect(() => {
-    getAllCollection();
+    const loadCollectionUris = async () => {
+      setLoading(true);
+      await getAllCollection();
+    };
+
+    loadCollectionUris();
   }, []);
 
   useEffect(() => {
     console.log(collectionUris, "collectionUris")
-    let images = [];
+    if (!Array.isArray(collectionUris) || collectionUris.length === 0) {
+      setImg([]);
+      setLoading(false);
+      return;
+    }
 
-    collectionUris.map(async (collection) => {
-      // // let tokenIds = await MarketpaceContract.getAllTokenId(collection.address);
-      // // setAllTokenIds(tokenIds.toString());
+    const loadCollections = async () => {
+      setLoading(true);
+      const localCollections = collectionUris.filter((collection) =>
+        isSupportedMetadataUri(collection.uri)
+      );
 
+      if (localCollections.length === 0) {
+        setImg([]);
+        setLoading(false);
+        return;
+      }
 
-      axios.get(collection.uri)
-        .then((response) => {
-          console.log(response, "response");
-          let obj = {};
-          obj.address = collection.address;
-          obj.name = response.data.name;
-          obj.price = response.data.tokenPrice;
-          // tokenIds.map((id) => {
-          //   obj.tokenIds =  id.toString();
+      const images = await Promise.all(
+        localCollections
+          .map(async (collection) => {
+            try {
+              console.log("NFTReadership:fetchingMetadata", collection);
+              const response = await fetchIpfsJson(collection.uri);
+              console.log("NFTReadership:metadataResponse", {
+                gatewayUrl: response.url,
+                data: response.data,
+                cached: response.cached,
+                unavailable: response.unavailable,
+              });
+              if (!response.data) {
+                return {
+                  address: collection.address,
+                  name: "Lucky Panda Collection",
+                  price: "",
+                  metadataUnavailable: true,
+                  images: [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+                };
+              }
 
-          //  })
+              const imgTokenUrl = Array.isArray(response.data.imgTokenUrl)
+                ? response.data.imgTokenUrl
+                : [];
+              console.log("NFTReadership:imgTokenUrl", {
+                address: collection.address,
+                count: imgTokenUrl.length,
+                imgTokenUrl,
+              });
 
-          obj.images = [];
-          console.log(response.data.imgTokenUrl, "imgTokenUrl");
-          response.data.imgTokenUrl.map((uri) => {
-            obj.images.push(uri);
+              return {
+                address: collection.address,
+                name: response.data.name || "Lucky Panda Collection",
+                price: response.data.tokenPrice,
+                images: imgTokenUrl.length > 0
+                  ? imgTokenUrl
+                  : [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+              };
+            } catch (err) {
+              console.log(err, "error loading collection metadata");
+              return {
+                address: collection.address,
+                name: "Lucky Panda Collection",
+                price: "",
+                metadataUnavailable: true,
+                images: [{ tokenID: 0, url: "/LuckyPandaLogo.png" }],
+              };
+            }
           })
-          console.log(obj, "obj");
-          images.push(obj);
-          console.log(images, "images");
-          setImg(images);
-        })
-        .catch((err) => {
-          console.log(err, "error from axious response");
-        })
-    })
+      );
+
+      const loadedImages = images.filter((item) => item && item.images.length > 0);
+      console.log("NFTReadership:loadedCollections", loadedImages);
+      setImg(loadedImages);
+      setLoading(false);
+    };
+
+    loadCollections();
   }, [collectionUris])
 
   // useEffect(() => {
@@ -75,15 +124,26 @@ export default function NFTReadership() {
   return (
     <div className="container py-5">
       <h2 className="text-center mb-4">Explore Collections</h2>
+      {loading && (
+        <p className="text-center text-muted">Loading..</p>
+      )}
+      {!loading &&
+        collectionUris.some((collection) => isSupportedMetadataUri(collection.uri)) &&
+        Img.length === 0 && (
+        <p className="text-center text-muted">Collections found, but metadata is unavailable right now.</p>
+      )}
       <div className="row g-4">
         {
           Img.map((i) => (
-            <div className="col-12 col-md-6 col-lg-4" key={i.images[0].tokenID}> {/* Adjust the column sizes as needed */}
+            <div className="col-12 col-md-6 col-lg-4" key={i.address}> {/* Adjust the column sizes as needed */}
               <div className="card h-100">
                 <img src={i.images[0].url} className="card-img-top" width='230px' height='230px' alt={`${i.name}'s collection`} />
                 <div className="card-body">
                   <Link to={`/all-collections/${i.address}`} className="nav-link">
                     <h5 className="card-title">{i.name}'s collection</h5>
+                    {i.metadataUnavailable && (
+                      <p className="card-text text-muted">Metadata is unavailable from IPFS right now.</p>
+                    )}
                     <p className="card-text">{i.address}</p>
                   </Link>
                 </div>

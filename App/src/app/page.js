@@ -1,6 +1,8 @@
 "use client"; // This is a client component 👈🏽
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'react-toastify/dist/ReactToastify.css';
 import { Routes, Route, BrowserRouter } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
 import { Web3ContextProvider } from "./components/context/Web3Context";
 import { LuckyPandaContextProvider } from "./components/context/LuckyPandaContext";
 import Header from './components/Pages/Header';
@@ -32,6 +34,15 @@ export default function Home() {
               <Route path='/lucky-draw-collections' element={<LuckyDraw />} />
             </Routes>
             <Footer />
+            <ToastContainer
+              position="top-right"
+              autoClose={4500}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              pauseOnHover
+              theme="light"
+            />
           </LuckyPandaContextProvider>
         </Web3ContextProvider>
       </BrowserRouter>
