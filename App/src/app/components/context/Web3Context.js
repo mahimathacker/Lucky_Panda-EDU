@@ -42,7 +42,8 @@ export const Web3ContextProvider = (props) => {
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
 
-  let add = localStorage.getItem("address");
+  const add =
+    typeof window !== "undefined" ? window.localStorage.getItem("address") : null;
 
   const switchToSepolia = async () => {
     const ethereum = getMetaMaskProvider();

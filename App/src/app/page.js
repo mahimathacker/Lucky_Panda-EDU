@@ -1,4 +1,5 @@
 "use client"; // This is a client component 👈🏽
+import { useEffect, useState } from "react";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'react-toastify/dist/ReactToastify.css';
 import { Routes, Route, BrowserRouter } from "react-router-dom";
@@ -17,6 +18,15 @@ import LuckyDraw from './components/Pages/LuckyDraw';
 import './globals.css';
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div>

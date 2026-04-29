@@ -66,9 +66,9 @@ export default function LuckyDraw() {
         {Img.map((i, index) => (
           <div className="col-12 col-md-6 col-lg-4" key={i.images[0].tokenID}>
             <div className="card h-100 shadow-sm">
-              <img src={i.images[0].url} className="card-img-top" alt={`${i.name}'s collection`} />
+              <img src={i.images[0].url} className="card-img-top" alt={`${i.name} collection`} />
               <div className="card-body">
-                <h5 className="card-title">{i.name}'s Collection</h5>
+                <h5 className="card-title">{i.name}&apos;s Collection</h5>
                 <p className="card-text text-muted mb-2">Collection Address: <span className="lucky-address">{i.address}</span></p>
                 <div className="card-text mb-3">
                   {i.hasWinner ? (

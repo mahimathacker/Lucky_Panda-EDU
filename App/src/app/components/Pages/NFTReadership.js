@@ -137,10 +137,10 @@ export default function NFTReadership() {
           Img.map((i) => (
             <div className="col-12 col-md-6 col-lg-4" key={i.address}> {/* Adjust the column sizes as needed */}
               <div className="card h-100">
-                <img src={i.images[0].url} className="card-img-top" width='230px' height='230px' alt={`${i.name}'s collection`} />
+                <img src={i.images[0].url} className="card-img-top" width='230px' height='230px' alt={`${i.name} collection`} />
                 <div className="card-body">
                   <Link to={`/all-collections/${i.address}`} className="nav-link">
-                    <h5 className="card-title">{i.name}'s collection</h5>
+                    <h5 className="card-title">{i.name}&apos;s collection</h5>
                     {i.metadataUnavailable && (
                       <p className="card-text text-muted">Metadata is unavailable from IPFS right now.</p>
                     )}

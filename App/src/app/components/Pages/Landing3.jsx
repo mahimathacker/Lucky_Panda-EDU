@@ -22,7 +22,7 @@ export default function Landing3() {
   <div className="card step-card">
     <div className="card-body">
       <h5 className="fw-bold">Set the Stage</h5>
-      <p className="card-text">Creators launch a Lottery NFT collection, defining the lottery's specific details</p>
+      <p className="card-text">Creators launch a Lottery NFT collection, defining the lottery&apos;s specific details</p>
     </div>
   </div>
 </div>
@@ -70,8 +70,8 @@ export default function Landing3() {
 <div className="col-auto mb-2">
   <div className="card step-card">
     <div className="card-body">
-      <h5 className="fw-bold">Fortune's Favor</h5>
-      <p className="card-text">The lucky winner secures a creator-defined portion of the collected pot, while a small operational fee supports the Lucky Panda platform's ecosystem</p>
+	      <h5 className="fw-bold">Fortune&apos;s Favor</h5>
+	      <p className="card-text">The lucky winner secures a creator-defined portion of the collected pot, while a small operational fee supports the Lucky Panda platform&apos;s ecosystem</p>
     </div>
   </div>
 </div>
